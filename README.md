@@ -11,11 +11,13 @@ ln -s $(pwd)/smashDupes-007.py /usr/local/bin/smashDupes-007
 
 # USAGE
 
-Remove Dupelicates in the current directory
+```
+Remove Duplicates in the current directory
 smashDupes-007
 
 Remove Dupes in a specified directory
 smashDupes-007 -d /path/to/remove/dupefiles
+```
 
 # FLAGS
 ```
