@@ -2,10 +2,12 @@
 A tool that removes duplicate files based on its checksum.
 
 # Installation
+```
 pip3 install termcolor
 git clone https://github.com/killeroo7/smashdupes-007
 cd smashdupes-007 && chmod +x smashDupes-007.py
 ln -s $(pwd)/smashDupes-007.py /usr/local/bin/smashDupes-007
+```
 
 # USAGE
 
