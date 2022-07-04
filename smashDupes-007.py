@@ -3,7 +3,8 @@
 import subprocess
 import os,sys,argparse
 from termcolor import colored
-
+import hashlib
+from collections import defaultdict
 
 def banner():
 	toolname = """
@@ -13,7 +14,7 @@ def banner():
 	 \_____  \ /     \\__  \  /  ___/  |  \   |    |  \|  |  \____ \/  ___/
 	 /        \  Y Y  \/ __ \_\___ \|   Y  \  |    `   \  |  /  |_> >___ \ 
 	/_______  /__|_|  (____  /____  >___|  / /_______  /____/|   __/____  >
-	        \/      \/     \/     \/     \/          \/      |__|       \/ 
+			\/      \/     \/     \/     \/          \/      |__|       \/ 
 	"""
 
 	x = "       +----------------------------------------------------------------------+"     
@@ -24,72 +25,86 @@ def banner():
 
 def get_arguments():
 	parser = argparse.ArgumentParser(colored("smashdups-007.py","magenta")+"\nINFO: "+colored("Removes All Duplicate Files from the current Folder","green"))
-	parser.add_argument("-v","--verbose",dest="verbose",action="store_true",help="Print filenames that are removed")
+	parser.add_argument("-v","--verbose",dest="verbose",action="store_true",help="Prints Hash of Each File")
 	parser.add_argument("-d","--dir",dest="directory",help="Directory to Delete Files")
-	parser.add_argument("-s","--silent",dest="silent",action="store_true",help="Don't Ask confirmation")
+	parser.add_argument("-q","--quiet",dest="quiet",action="store_true",help="Don't Ask Confirmation")
 	args = parser.parse_args()
 	return args
 
-def remove_dups():
-	
-	verbose = get_arguments().verbose or False
-
-	if not get_arguments().silent:
-		ans = input(colored("[Warning]","red")+colored(" Remove all Duplicate Files?(y/n): ","green"))
-		if ans.lower()!="y":
-			exit(0)
-	
-	if get_arguments().directory:
-		os.chdir(get_arguments().directory)
+def getHash(fileName):
+	with open(fileName, "r") as f:
+		fileHash = hashlib.blake2b()
+		chunk = f.read(8192)
+		while chunk:
+			fileHash.update(chunk.encode())
+			chunk = f.read(8192)
+	return fileHash.hexdigest()
 
 
-	all_files = os.listdir()
-	dic={}
+def printDuplicateFiles(dicts):
+	print(colored(f"\n[-] DUPLICATE FILES [-]                                     \n-----------------------","cyan"))
+	isEmpty = True
+	for value in dicts.values():
+		if len(value)>1:
+			isEmpty = False
+			print(value)
 
-	for file in all_files:		  					 #Removing Directories
+	if isEmpty:
+		print(colored("\n[COMPLETE]","yellow" )+ colored(" No Duplicate Files Found","green"))
+		exit()
+
+def remove_dups(directory, verbose, quiet):
+	if directory:
+		os.chdir(directory)
+	allFiles = os.listdir()
+	dicts=defaultdict(list)
+
+	for file in allFiles:		  					 #Removing Directories
 		if os.path.isdir(file):
-			all_files.remove(file)
+			allFiles.remove(file)
 
-	files_before_del = len(all_files)
-
-	for file in all_files:
+	for file in allFiles:
 		try:
-			output= ((subprocess.check_output(f"md5sum {file}",	shell=True)).decode()).strip()
-			md5 = output.split("  ")[0]
-			filename = output.split("  ")[1]
-
-			print(colored(filename,"yellow")+"  -->  "+colored(md5+"                              ","cyan"),end="\r"),
-			sys.stdout.flush()
-
-			if md5 in dic:
-				if verbose==True:
-					print(colored(f"[-] Duplicate File Found --> {filename} : {md5}                              ","red"))
-				os.remove(filename)
-			else:
-				dic[md5] = filename
+			hashx = getHash(file)
+			if verbose==True:
+				print(colored(file,"yellow")+"  -->  "+colored(hashx+"","cyan"),end="\r"),
+				sys.stdout.flush()
+			dicts[hashx].append(file)
 
 		except KeyboardInterrupt:
-			print("                                                                                                       ")
+			print("                                                                                                 ")
 			is_exit = input(colored("Ctrl-c Detected. Exit?(y/n): ","red"))
 			if is_exit.lower()=='y' or is_exit.lower()=='yes':
 				exit()
 			else:
 				pass
 
-	all_files=os.listdir()
-	for file in all_files:		  					 #Removing Directories
-		if os.path.isdir(file):
-			all_files.remove(file)
+	sys.stdout.write('\x1b[2K')
+	printDuplicateFiles(dicts)
+	if not quiet:
+		ans = input(colored("\n[Warning]","red")+colored(" Remove all Duplicate Files?(y/n): ","green"))
+		if ans.lower()!="y":
+			exit(0)
 
-	files_after_del = len(all_files)
+	count = 0
+	for duplicateList in dicts.values():
+		for file in duplicateList[1:]:
+			print(colored("[Deleted] ","magenta")+colored(f"{file}","blue"))
+			count +=1
+			try:
+				os.remove(file)
+			except Exception:
+				print(colored("[-] Error Deleting File --> ","red")+colored(f"{file}","blue"))
 
-	print(colored(f"[+] Total Files Before Deleting =","yellow"),colored(f"{files_before_del}                                                             ","green"))
-	print(colored(f"[+] Total Files After Deleting  =","yellow"),colored(f"{files_after_del}","green"))
+	print(colored("\n[Complete]","cyan")+colored(f" Total Files Deleted = {count}","green"))
 
 
 def main():
 	banner()
-	get_arguments()
-	remove_dups()
+	args = get_arguments()
+	directory = args.directory or None
+	quiet = args.quiet or False
+	verbose = args.verbose or False
+	remove_dups(directory, verbose, quiet)
 
 main()
